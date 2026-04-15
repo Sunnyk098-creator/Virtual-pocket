@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIRTUAL POCKET</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; color: #1e293b; -webkit-tap-highlight-color: transparent; }
+        .glass { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .blue-grad { background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); color: white; }
+        .tap:active { transform: scale(0.96); }
+        .app-screen { min-height: 100vh; width: 100%; background-color: #f8fafc; }
+        input, textarea, select { color: #1e293b !important; }
+        input::placeholder, textarea::placeholder { color: #94a3b8; }
+        
+        #global-loader { position: fixed; inset: 0; background: #ffffff; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loader-wheel { border: 4px solid #f1f5f9; border-left-color: #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { margin-top: 15px; color: #3b82f6; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* Scratch Canvas Style */
+        #scratch-canvas { background: #cbd5e1; border-radius: 1rem; width: 100%; height: 150px; cursor: crosshair; }
+        .coin-toss-anim { animation: flip 2s ease-in-out forwards; }
+        @keyframes flip { 0% { transform: rotateY(0deg) scale(1); } 50% { transform: rotateY(1800deg) scale(1.5); } 100% { transform: rotateY(3600deg) scale(1); } }
+    </style>
+</head>
+<body class="max-w-md mx-auto bg-slate-50 relative overflow-x-hidden">
+
+<div id="global-loader">
+    <div class="loader-wheel"></div>
+    <p class="loader-text">Loading...</p>
+</div>
+
+<div id="main-dashboard" class="app-screen hidden pb-24">
+    <header class="p-6 flex justify-between items-center bg-white shadow-sm mb-6 rounded-b-3xl">
+        <div onclick="document.getElementById('sidebar').classList.remove('-translate-x-full')" class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center tap cursor-pointer"><i class="fa-solid fa-bars-staggered text-blue-600"></i></div>
+        <h1 class="text-[10px] font-black tracking-[0.2em] text-blue-600 uppercase">Virtual Pocket</h1>
+        <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-blue-600"><i class="fa-solid fa-wallet"></i></div>
+    </header>
+
+    <div class="px-6 space-y-6 text-center">
+        <div class="blue-grad p-8 rounded-[2.5rem] shadow-xl shadow-blue-200">
+            <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1">Total Balance</p>
+            <h1 id="main-balance" class="text-4xl font-black">₹0.00</h1>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+            <div onclick="showScreen('add-fund')" class="tap cursor-pointer">
+                <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-2 mx-auto"><i class="fa-solid fa-plus text-blue-600 text-lg"></i></div>
+                <p class="text-[8px] uppercase font-black text-slate-600 tracking-wider">Add Fund</p>
+            </div>
+            <div onclick="showScreen('withdraw-screen')" class="tap cursor-pointer">
+                <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mb-2 mx-auto"><i class="fa-solid fa-building-columns text-emerald-600 text-lg"></i></div>
+                <p class="text-[8px] uppercase font-black text-slate-600 tracking-wider">Withdraw</p>
+            </div>
+            <div onclick="showScreen('pay-screen')" class="tap cursor-pointer">
+                <div class="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center mb-2 mx-auto"><i class="fa-solid fa-paper-plane text-purple-600 text-lg"></i></div>
+                <p class="text-[8px] uppercase font-black text-slate-600 tracking-wider">Pay</p>
+            </div>
+            <div onclick="showScreen('history-screen')" class="tap cursor-pointer">
+                <div class="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center mb-2 mx-auto"><i class="fa-solid fa-clock-rotate-left text-orange-600 text-lg"></i></div>
+                <p class="text-[8px] uppercase font-black text-slate-600 tracking-wider">History</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="showScreen('claim-screen')" class="w-full bg-white border border-slate-200 p-5 rounded-2xl flex flex-col items-center justify-center gap-2 tap shadow-sm">
+                <i class="fa-solid fa-gift text-pink-500 text-2xl"></i>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-700">Gift Codes</span>
+            </button>
+            <button onclick="document.getElementById('bulk-balance-display').innerText = '₹' + (window.currentUser?.balance||0); showScreen('bulk-screen');" class="w-full bg-white border border-slate-200 p-5 rounded-2xl flex flex-col items-center justify-center gap-2 tap shadow-sm">
+                <i class="fa-solid fa-layer-group text-blue-500 text-2xl"></i>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-700">Bulk Pay</span>
+            </button>
+        </div>
+
+        <button onclick="showScreen('lifafa-manager-screen'); loadMyLifafas();" class="w-full bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-center gap-4 tap shadow-sm mt-4">
+            <div class="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center"><i class="fa-solid fa-envelope-open-text text-red-500 text-xl"></i></div>
+            <div class="text-left"><span class="text-sm font-black text-slate-800 block">Lifafa System</span><span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Create & Share Giveaways</span></div>
+            <i class="fa-solid fa-chevron-right text-slate-300 ml-auto"></i>
+        </button>
+    </div>
+</div>
+
+<div id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-white z-[1000] shadow-2xl transform -translate-x-full transition-transform duration-300">
+    <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <h2 class="font-black text-lg text-blue-600 uppercase tracking-wider">Menu</h2>
+        <div onclick="document.getElementById('sidebar').classList.add('-translate-x-full')" class="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 cursor-pointer"><i class="fa-solid fa-xmark"></i></div>
+    </div>
+    <div class="p-6 space-y-3">
+        <div onclick="showScreen('profile-screen')" class="p-4 bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-700 uppercase cursor-pointer hover:bg-slate-100"><i class="fa-solid fa-user text-blue-500 w-5"></i> Profile</div>
+        <div onclick="showScreen('api-screen')" class="p-4 bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-700 uppercase cursor-pointer hover:bg-slate-100"><i class="fa-solid fa-code text-purple-500 w-5"></i> API System</div>
+        <div onclick="showScreen('pin-screen')" class="p-4 bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-bold text-slate-700 uppercase cursor-pointer hover:bg-slate-100"><i class="fa-solid fa-lock text-emerald-500 w-5"></i> Change PIN</div>
+        <div onclick="window.open('https://t.me/+9HR0Qgf0UQpjODg1', '_blank')" class="p-4 bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-bold text-blue-500 uppercase cursor-pointer hover:bg-slate-100"><i class="fa-brands fa-telegram w-5 text-lg"></i> Join Channel</div>
+        <div onclick="window.open('https://t.me/KINGONTOP111', '_blank')" class="p-4 bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-bold text-orange-500 uppercase cursor-pointer hover:bg-slate-100"><i class="fa-solid fa-headset w-5 text-lg"></i> Customer Support</div>
+        <div onclick="localStorage.clear(); location.href = location.origin;" class="p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-[11px] font-bold uppercase cursor-pointer mt-8"><i class="fa-solid fa-right-from-bracket w-5"></i> Logout</div>
+    </div>
+</div>
+
+<div id="auth-screen" class="app-screen hidden fixed inset-0 bg-slate-50 p-6 flex flex-col justify-center items-center z-[999]">
+    <div class="w-full max-w-sm bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100">
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4"><i class="fa-solid fa-wallet"></i></div>
+            <h1 class="text-2xl font-black text-slate-800 uppercase tracking-wide">Welcome Back</h1>
+            <p class="text-xs text-slate-500 font-medium mt-2">Login to your Virtual Pocket</p>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 mb-1 ml-1 uppercase tracking-wide">Mobile Number</label>
+                <div class="flex items-center bg-slate-50 rounded-xl px-4 border border-slate-200 focus-within:border-blue-500 transition">
+                    <span class="text-slate-600 font-bold text-sm pr-2 border-r border-slate-300">+91</span>
+                    <input type="number" id="login-phone" placeholder="10 Digit Number" class="w-full bg-transparent p-3.5 text-sm font-bold text-slate-800 focus:outline-none" oninput="if(this.value.length>10)this.value=this.value.slice(0,10);">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 mb-1 ml-1 uppercase tracking-wide">Password</label>
+                <input id="login-pass" type="password" placeholder="Password" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-bold focus:outline-none">
+            </div>
+            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-bold rounded-xl py-4 mt-2 shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition">LOGIN TO ACCOUNT</button>
+            <div class="text-center mt-6">
+                <p class="text-xs text-slate-500 font-medium">Don't have an account?</p>
+                <button onclick="showScreen('register-screen')" class="text-blue-600 font-bold text-sm mt-1">Create new account</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="register-screen" class="app-screen hidden p-6 flex items-center justify-center bg-slate-50 min-h-screen z-[999]">
+    <div class="w-full max-w-sm bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-black text-blue-600 uppercase tracking-wide">Create Account</h1>
+        </div>
+        <div class="space-y-4">
+            <input type="text" id="reg-name" placeholder="Full Name" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none">
+            <div class="flex items-center bg-slate-50 rounded-xl px-4 border border-slate-200 focus-within:border-blue-500 transition">
+                <span class="text-slate-600 font-bold text-sm pr-2 border-r border-slate-300">+91</span>
+                <input type="number" id="reg-phone" placeholder="10 Digit Number" class="w-full bg-transparent p-3 text-sm font-bold text-slate-800 focus:outline-none" oninput="if(this.value.length>10)this.value=this.value.slice(0,10);">
+            </div>
+            <input type="password" id="reg-pass" placeholder="Password" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none">
+            <input type="password" id="reg-pin" placeholder="4-Digit PIN" maxlength="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none text-center tracking-[1em]">
+            <button onclick="handleRegister()" class="w-full bg-blue-600 text-white font-bold rounded-xl py-4 mt-4 shadow-lg hover:bg-blue-700">REGISTER ACCOUNT</button>
+            <div class="text-center"><button onclick="showScreen('auth-screen')" class="text-slate-500 font-bold text-sm">Back to Login</button></div>
+        </div>
+    </div>
+</div>
+
+<div id="lifafa-manager-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Lifafa Manager</h2>
+    </div>
+
+    <div class="bg-white p-1 rounded-[1rem] flex shadow-sm border border-slate-200 mb-6 gap-1">
+        <button onclick="toggleLifafaTab('CREATE')" id="l-tab-create" class="flex-1 bg-red-500 text-white font-bold py-3 px-2 rounded-xl text-[10px] transition">CREATE NEW</button>
+        <button onclick="toggleLifafaTab('LIST')" id="l-tab-list" class="flex-1 text-slate-500 font-bold py-3 px-2 rounded-xl text-[10px] transition hover:bg-slate-100 bg-transparent">MY LIFAFAS</button>
+    </div>
+
+    <div id="lifafa-create-sec" class="space-y-4">
+        <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Telegram Channel Link (Required)</label>
+            <input id="l-tg" type="text" placeholder="https://t.me/yourchannel" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none mb-4">
+            
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Unique Code (Optional Password)</label>
+            <input id="l-code" type="text" placeholder="Leave empty if none" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none mb-4">
+            
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Lifafa Type</label>
+            <select id="l-type" onchange="switchLifafaInputs()" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none mb-4">
+                <option value="STANDARD">Standard (Fixed Amount)</option>
+                <option value="SCRATCH">Scratch Card (Random Range)</option>
+                <option value="TOSS">Coin Toss (Win/Lose condition)</option>
+            </select>
+
+            <div id="l-input-standard" class="mb-4">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Amount Per User (₹)</label>
+                <input id="l-std-amt" type="number" placeholder="e.g. 5" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none">
+            </div>
+
+            <div id="l-input-scratch" class="mb-4 hidden grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Min (₹)</label>
+                    <input id="l-scr-min" type="number" placeholder="1" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Max (₹)</label>
+                    <input id="l-scr-max" type="number" placeholder="10" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none">
+                </div>
+                <p class="col-span-2 text-[9px] text-slate-400 italic">Note: Your wallet will be deducted based on the Max Amount.</p>
+            </div>
+
+            <div id="l-input-toss" class="mb-4 hidden space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Winning Amount (₹)</label>
+                    <input id="l-toss-amt" type="number" placeholder="e.g. 10" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Winning Side</label>
+                    <select id="l-toss-win" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none">
+                        <option value="HEAD">Head</option>
+                        <option value="TAIL">Tail</option>
+                    </select>
+                </div>
+            </div>
+
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Total Users Limit</label>
+            <input id="l-users" type="number" placeholder="e.g. 20" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none mb-6">
+            
+            <button onclick="handleCreateLifafa()" class="w-full bg-red-500 text-white font-bold rounded-xl py-4 shadow-lg flex justify-center items-center gap-2"><i class="fa-solid fa-envelope-open-text"></i> CREATE & PAY</button>
+            
+            <div id="l-generated-link" class="hidden mt-6 p-4 bg-slate-50 rounded-xl border border-dashed border-red-300 break-all text-center">
+                <p class="text-[10px] font-bold text-slate-500 mb-2">Share this link:</p>
+                <a id="l-link-text" href="#" class="text-sm font-black text-red-600 block mb-2 underline"></a>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('l-link-text').href); alert('Link Copied!');" class="bg-red-100 text-red-600 text-xs px-4 py-2 rounded-lg font-bold"><i class="fa-regular fa-copy"></i> Copy Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="lifafa-list-sec" class="hidden space-y-4 min-h-[300px]"></div>
+</div>
+
+<div id="claim-lifafa-screen" class="app-screen hidden fixed inset-0 bg-red-50 p-6 flex flex-col items-center justify-center z-[5000] overflow-y-auto">
+    <div class="w-full max-w-sm bg-white p-6 rounded-[2rem] shadow-xl shadow-red-200/50 border border-slate-100 text-center relative">
+        <div class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-4xl mx-auto -mt-14 mb-4 border-4 border-white shadow-sm"><i class="fa-solid fa-gift"></i></div>
+        
+        <h1 class="text-2xl font-black text-slate-800 uppercase tracking-wide">You got a Lifafa!</h1>
+        <p id="claim-type-desc" class="text-xs text-slate-500 font-bold mt-1 mb-6 bg-slate-100 py-1 px-3 rounded-full inline-block">Fetching Details...</p>
+
+        <div id="claim-steps-container" class="space-y-4 text-left hidden">
+            <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <label class="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-2"><i class="fa-brands fa-telegram"></i> Step 1: Join Channel</label>
+                <button onclick="openLifafaTelegram()" class="w-full bg-blue-500 text-white font-bold py-3 rounded-lg text-sm shadow-md">Click to Join</button>
+            </div>
+
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Step 2: Verification</label>
+                <div id="claim-code-div" class="mb-3 hidden">
+                    <input id="claim-code" type="text" placeholder="Unique Access Code" class="w-full bg-white p-3 rounded-lg border text-sm font-bold outline-none text-center tracking-widest">
+                </div>
+                <div>
+                    <input id="claim-phone" type="number" placeholder="Wallet Mobile (10 Digits)" class="w-full bg-white p-3 rounded-lg border text-sm font-bold outline-none text-center">
+                </div>
+            </div>
+
+            <button onclick="proceedLifafaClaim()" class="w-full bg-red-500 text-white font-black py-4 rounded-xl uppercase tracking-widest shadow-lg mt-2">Open Lifafa</button>
+        </div>
+
+        <div id="claim-game-container" class="hidden py-6">
+            <div id="game-scratch" class="hidden">
+                <p class="text-xs font-bold text-slate-500 mb-3">Scratch to reveal your prize!</p>
+                <button onclick="executeFinalClaim()" class="w-full bg-orange-500 text-white font-black py-6 rounded-xl uppercase tracking-widest text-lg shadow-lg animate-bounce">Reveal My Reward</button>
+            </div>
+
+            <div id="game-toss" class="hidden">
+                <p class="text-xs font-bold text-slate-500 mb-4">A coin will be tossed. Let's see your luck!</p>
+                <div id="coin-ui" class="w-24 h-24 bg-yellow-400 rounded-full mx-auto flex items-center justify-center border-4 border-yellow-500 shadow-xl mb-6 text-yellow-700 font-black text-2xl">?</div>
+                <button onclick="playTossGame()" class="w-full bg-yellow-500 text-white font-black py-4 rounded-xl uppercase tracking-widest shadow-lg">Toss Coin</button>
+            </div>
+        </div>
+
+        <div id="claim-result-container" class="hidden py-6">
+            <h2 id="claim-result-msg" class="text-2xl font-black text-slate-800"></h2>
+            <p id="claim-result-amt" class="text-4xl font-black text-emerald-500 my-4 hidden">₹0</p>
+            <button onclick="location.href=location.origin" class="mt-4 text-xs font-bold text-slate-400 underline">Go to Homepage</button>
+        </div>
+
+    </div>
+</div>
+
+<div id="add-fund" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Add Fund</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <p class="text-slate-500 font-bold text-sm">Add fund options will appear here.</p>
+    </div>
+</div>
+
+<div id="withdraw-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Withdraw</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <p class="text-slate-500 font-bold text-sm">Withdrawal form will appear here.</p>
+    </div>
+</div>
+
+<div id="pay-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Pay / Send</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <p class="text-slate-500 font-bold text-sm">Send money form will appear here.</p>
+    </div>
+</div>
+
+<div id="history-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">History</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <p class="text-slate-500 font-bold text-sm">Transaction history will load here.</p>
+    </div>
+</div>
+
+<div id="claim-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Claim Gift</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <p class="text-slate-500 font-bold text-sm">Gift code redemption will appear here.</p>
+    </div>
+</div>
+
+<div id="bulk-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Bulk Pay</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <h1 id="bulk-balance-display" class="text-2xl font-black mb-2 text-blue-600">₹0.00</h1>
+        <p class="text-slate-500 font-bold text-sm">Bulk payment options will appear here.</p>
+    </div>
+</div>
+
+<div id="profile-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">My Profile</h2>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+        <p class="text-slate-500 font-bold text-sm">Profile details will appear here.</p>
+    </div>
+</div>
+
+<div id="api-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">API System</h2>
+    </div>
+</div>
+
+<div id="pin-screen" class="app-screen hidden p-6 bg-slate-50 min-h-screen pb-24">
+    <div class="flex items-center mb-6">
+        <button onclick="showScreen('main-dashboard')" class="text-slate-600 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="ml-4 font-black text-slate-800 text-lg uppercase tracking-wide">Change PIN</h2>
+    </div>
+</div>
+
+<script>
+const API_URL = "/api/backend"; 
+
+let currentUser = null;
+let currentTask = '';
+let currentHistoryTab = 'ALL';
+let activeLifafaData = null; // For URL claim
+
+const loader = (show) => document.getElementById('global-loader').style.display = show ? 'flex' : 'none';
+
+async function apiCall(action, payload) {
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action, data: payload })
+        });
+        const json = await res.json();
+        if (!res.ok || json.error) throw new Error(json.error || "Server Error");
+        return json.data;
+    } catch (e) {
+        throw e;
+    }
+}
+
+function showScreen(id) {
+    document.querySelectorAll('.app-screen').forEach(s => { s.classList.add('hidden'); s.style.display = 'none'; });
+    const target = document.getElementById(id);
+    if(target) { target.classList.remove('hidden'); target.style.display = 'block'; }
+    const sidebar = document.getElementById('sidebar');
+    if(sidebar) sidebar.classList.add('-translate-x-full');
+    if(id === 'history-screen') loadHistory();
+}
+
+// ============== AUTH & SYNC (Kept from original logic) ==================
+async function handleLogin() {
+    const phone = document.getElementById('login-phone').value;
+    const pass = document.getElementById('login-pass').value;
+    if (!phone || !pass) return alert("Fill all fields!");
+    loader(true);
+    try {
+        const user = await apiCall('LOGIN', { phone: "+91"+phone, password: pass });
+        localStorage.setItem('ultra_user', JSON.stringify(user));
+        currentUser = user; startSync(); showScreen('main-dashboard');
+    } catch(e) { alert(e.message); }
+    loader(false);
+}
+
+let syncTimer = null;
+function startSync() {
+    if(!currentUser) return;
+    if(syncTimer) clearInterval(syncTimer);
+    const fetchSync = async () => {
+        try {
+            const result = await apiCall('SYNC', { phone: currentUser.phone });
+            currentUser = result.user;
+            localStorage.setItem('ultra_user', JSON.stringify(currentUser));
+            if(document.getElementById('main-balance')) document.getElementById('main-balance').innerText = "₹" + (Number(currentUser.balance)||0).toFixed(2);
+        } catch(e) {}
+    };
+    fetchSync(); syncTimer = setInterval(fetchSync, 3000); 
+}
+
+// =====================================================================
+//                       LIFAFA CREATOR LOGIC
+// =====================================================================
+
+function switchLifafaInputs() {
+    const t = document.getElementById('l-type').value;
+    document.getElementById('l-input-standard').style.display = t==='STANDARD' ? 'block' : 'none';
+    document.getElementById('l-input-scratch').style.display = t==='SCRATCH' ? 'grid' : 'none';
+    document.getElementById('l-input-toss').style.display = t==='TOSS' ? 'block' : 'none';
+}
+
+function toggleLifafaTab(tab) {
+    if(tab==='CREATE') {
+        document.getElementById('l-tab-create').className = "flex-1 bg-red-500 text-white font-bold py-3 px-2 rounded-xl text-[10px] transition";
+        document.getElementById('l-tab-list').className = "flex-1 text-slate-500 font-bold py-3 px-2 rounded-xl text-[10px] transition hover:bg-slate-100 bg-transparent";
+        document.getElementById('lifafa-create-sec').classList.remove('hidden');
+        document.getElementById('lifafa-list-sec').classList.add('hidden');
+    } else {
+        document.getElementById('l-tab-list').className = "flex-1 bg-red-500 text-white font-bold py-3 px-2 rounded-xl text-[10px] transition";
+        document.getElementById('l-tab-create').className = "flex-1 text-slate-500 font-bold py-3 px-2 rounded-xl text-[10px] transition hover:bg-slate-100 bg-transparent";
+        document.getElementById('lifafa-create-sec').classList.add('hidden');
+        document.getElementById('lifafa-list-sec').classList.remove('hidden');
+        loadMyLifafas();
+    }
+}
+
+async function handleCreateLifafa() {
+    const tg = document.getElementById('l-tg').value.trim();
+    const code = document.getElementById('l-code').value.trim();
+    const type = document.getElementById('l-type').value;
+    const users = Number(document.getElementById('l-users').value);
+    
+    if(!tg.startsWith("http")) return alert("Enter valid Telegram Link starting with http/https");
+    if(!users || users < 1) return alert("Enter valid users limit");
+
+    let payload = { phone: currentUser.phone, type, telegram: tg, code, totalUsers: users };
+
+    if(type === 'STANDARD') {
+        payload.amount = Number(document.getElementById('l-std-amt').value);
+        if(!payload.amount || payload.amount<=0) return alert("Enter valid amount");
+    } else if(type === 'SCRATCH') {
+        payload.minAmount = Number(document.getElementById('l-scr-min').value);
+        payload.maxAmount = Number(document.getElementById('l-scr-max').value);
+        if(!payload.minAmount || !payload.maxAmount || payload.minAmount >= payload.maxAmount) return alert("Invalid Min/Max range");
+    } else if(type === 'TOSS') {
+        payload.amount = Number(document.getElementById('l-toss-amt').value);
+        payload.tossWin = document.getElementById('l-toss-win').value;
+        if(!payload.amount || payload.amount<=0) return alert("Enter valid amount");
+    }
+
+    loader(true);
+    try {
+        const lifafaId = await apiCall('CREATE_LIFAFA', payload);
+        const link = `${location.origin}/?id=${lifafaId}`;
+        document.getElementById('l-generated-link').classList.remove('hidden');
+        document.getElementById('l-link-text').href = link;
+        document.getElementById('l-link-text').innerText = link;
+        alert("Lifafa Created Successfully!");
+        startSync();
+    } catch(e) { alert(e.message); }
+    loader(false);
+}
+
+async function loadMyLifafas() {
+    const listSec = document.getElementById('lifafa-list-sec');
+    listSec.innerHTML = `<p class="text-center text-xs text-slate-400 py-10 font-bold uppercase tracking-widest animate-pulse">Loading...</p>`;
+    try {
+        const myL = await apiCall('MY_LIFAFAS', { phone: currentUser.phone });
+        if(!myL || myL.length === 0) {
+            listSec.innerHTML = `<p class="text-center text-xs text-slate-400 py-10 font-bold uppercase tracking-widest">No Lifafas Created</p>`;
+            return;
+        }
+        myL.sort((a,b)=>b.timestamp - a.timestamp);
+        let html = '';
+        myL.forEach(l => {
+            const link = `${location.origin}/?id=${l.id}`;
+            const statusBadge = l.isExpired ? `<span class="bg-red-100 text-red-600 px-2 py-1 rounded text-[8px] font-black">EXPIRED</span>` : 
+                               (l.claimedUsers >= l.totalUsers ? `<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[8px] font-black">COMPLETED</span>` : `<span class="bg-emerald-100 text-emerald-600 px-2 py-1 rounded text-[8px] font-black">ACTIVE</span>`);
+            html += `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 text-left">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-black text-slate-800">${l.type} LIFAFA</span>
+                    ${statusBadge}
+                </div>
+                <div class="text-[10px] font-bold text-slate-500 mb-2">Claims: ${l.claimedUsers}/${l.totalUsers}</div>
+                <div class="bg-slate-50 border border-slate-200 p-2 rounded-lg flex items-center justify-between">
+                    <span class="text-[9px] truncate w-3/4 font-mono text-slate-600">${link}</span>
+                    <button onclick="navigator.clipboard.writeText('${link}'); alert('Copied!');" class="text-blue-500 px-2"><i class="fa-regular fa-copy"></i></button>
+                </div>
+            </div>`;
+        });
+        listSec.innerHTML = html;
+    } catch(e) { listSec.innerHTML = `<p class="text-center text-xs text-red-500">Error loading.</p>`; }
+}
+
+// =====================================================================
+//                       LIFAFA CLAIMER LOGIC
+// =====================================================================
+let tgJoined = false;
+
+async function initLifafaClaim(id) {
+    showScreen('claim-lifafa-screen');
+    try {
+        const res = await apiCall('GET_LIFAFA_DETAILS', { id: id });
+        activeLifafaData = res;
+        activeLifafaData.id = id;
+        
+        document.getElementById('claim-type-desc').innerText = `Type: ${res.type} GIVEAWAY`;
+        document.getElementById('claim-steps-container').classList.remove('hidden');
+        if(res.hasCode) document.getElementById('claim-code-div').classList.remove('hidden');
+
+    } catch(e) {
+        document.getElementById('claim-type-desc').innerText = "ERROR";
+        document.getElementById('claim-type-desc').className = "text-xs text-white bg-red-500 font-bold mt-1 mb-6 py-1 px-3 rounded-full inline-block";
+        document.getElementById('claim-result-container').classList.remove('hidden');
+        document.getElementById('claim-result-msg').innerText = e.message;
+        document.getElementById('claim-result-msg').className = "text-xl font-black text-red-500";
+    }
+}
+
+function openLifafaTelegram() {
+    tgJoined = true;
+    window.open(activeLifafaData.telegram, '_blank');
+}
+
+function proceedLifafaClaim() {
+    if(!tgJoined) return alert("Please join the Telegram channel first!");
+    const phone = document.getElementById('claim-phone').value.trim();
+    if(phone.length !== 10) return alert("Enter valid 10-digit mobile!");
+    if(activeLifafaData.hasCode && !document.getElementById('claim-code').value.trim()) return alert("Enter unique code!");
+
+    document.getElementById('claim-steps-container').classList.add('hidden');
+    document.getElementById('claim-game-container').classList.remove('hidden');
+
+    if(activeLifafaData.type === 'STANDARD') {
+        executeFinalClaim();
+    } else if(activeLifafaData.type === 'SCRATCH') {
+        document.getElementById('game-scratch').classList.remove('hidden');
+    } else if(activeLifafaData.type === 'TOSS') {
+        document.getElementById('game-toss').classList.remove('hidden');
+    }
+}
+
+function playTossGame() {
+    const coin = document.getElementById('coin-ui');
+    coin.classList.add('coin-toss-anim');
+    setTimeout(() => {
+        executeFinalClaim();
+    }, 2000);
+}
+
+async function executeFinalClaim() {
+    loader(true);
+    const phone = document.getElementById('claim-phone').value.trim();
+    const code = document.getElementById('claim-code').value.trim();
+    
+    try {
+        const result = await apiCall('CLAIM_LIFAFA', { id: activeLifafaData.id, phone: phone, code: code });
+        
+        document.getElementById('claim-game-container').classList.add('hidden');
+        document.getElementById('claim-result-container').classList.remove('hidden');
+
+        if(result.success && result.amount > 0) {
+            document.getElementById('claim-result-msg').innerText = "Congratulations!";
+            document.getElementById('claim-result-amt').classList.remove('hidden');
+            document.getElementById('claim-result-amt').innerText = `+₹${result.amount}`;
+            
+            // If they are logged in and it's their account, sync balance
+            if(currentUser && (currentUser.phone === phone || currentUser.phone === "+91"+phone)) { startSync(); }
+        } else {
+            document.getElementById('claim-result-msg').innerText = "Hard Luck! Try next time.";
+            document.getElementById('claim-result-msg').className = "text-2xl font-black text-red-500";
+        }
+    } catch(e) {
+        document.getElementById('claim-game-container').classList.add('hidden');
+        document.getElementById('claim-result-container').classList.remove('hidden');
+        document.getElementById('claim-result-msg').innerText = e.message;
+        document.getElementById('claim-result-msg').className = "text-xl font-black text-red-500";
+    }
+    loader(false);
+}
+
+// DUMMY FUNCTION TO PREVENT JS CRASHES ON EMPTY SCREENS
+function loadHistory() {
+    console.log("History tab opened.");
+    // Aap apna history fetch aur display karne ka backend logic yahan add karenge aage.
+}
+
+// ================== APP INITIALIZATION ==================
+window.onload = () => {
+    let u = localStorage.getItem('ultra_user');
+    if(u) currentUser = JSON.parse(u);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const lifafaId = urlParams.get('id');
+
+    setTimeout(() => loader(false), 500);
+
+    if (lifafaId) {
+        initLifafaClaim(lifafaId);
+    } else {
+        if(currentUser) { showScreen('main-dashboard'); startSync(); }
+        else { showScreen('auth-screen'); }
+    }
+};
+
+</script>
+</body>
+</html>
