@@ -190,7 +190,8 @@ export default async function handler(req, res) {
                 tossWin: data.tossWin || '',
                 totalUsers: Number(data.totalUsers),
                 claimedUsers: 0,
-                telegram: data.telegram,
+                telegram: data.telegramLinks && data.telegramLinks.length > 0 ? data.telegramLinks[0] : '', 
+                telegramLinks: data.telegramLinks || [], // Added Array support for multiple links
                 code: data.code || '',
                 timestamp: Date.now(),
                 status: 'ACTIVE'
@@ -234,7 +235,10 @@ export default async function handler(req, res) {
 
             return res.json({ 
                 data: { 
-                    id: l.id, type: l.type, telegram: l.telegram, hasCode: !!l.code, 
+                    id: l.id, type: l.type, 
+                    telegram: l.telegram, 
+                    telegramLinks: l.telegramLinks || (l.telegram ? [l.telegram] : []), // Sending all links 
+                    hasCode: !!l.code, 
                     amount: l.amount, minAmount: l.minAmount, maxAmount: l.maxAmount, tossWin: l.tossWin 
                 } 
             });
