@@ -409,10 +409,13 @@
 
     <div id="lifafa-create-sec" class="space-y-4">
         <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Telegram Channel Link (Required)</label>
-            <input id="l-tg" type="text" placeholder="https://t.me/yourchannel" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none mb-4">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Telegram Channel Links (Required)</label>
+            <div id="tg-inputs-container" class="space-y-3 mb-2">
+                <input type="text" placeholder="https://t.me/yourchannel" class="tg-link-input w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none">
+            </div>
+            <button type="button" onclick="addTgInput()" class="text-[10px] font-bold text-blue-500 mb-4 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">+ Add Channel</button>
             
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Unique Code (Optional Password)</label>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1 mt-2">Unique Code (Optional Password)</label>
             <input id="l-code" type="text" placeholder="Leave empty if none" class="w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none mb-4">
             
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-1">Lifafa Type</label>
@@ -478,8 +481,9 @@
 
         <div id="claim-steps-container" class="space-y-4 text-left hidden">
             <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <label class="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-2"><i class="fa-brands fa-telegram"></i> Step 1: Join Channel</label>
-                <button onclick="openLifafaTelegram()" class="w-full bg-blue-500 text-white font-bold py-3 rounded-lg text-sm shadow-md">Click to Join</button>
+                <label class="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-2"><i class="fa-brands fa-telegram"></i> Step 1: Join Channel(s)</label>
+                <div id="dynamic-tg-buttons" class="space-y-3">
+                    </div>
             </div>
 
             <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -517,7 +521,6 @@
     </div>
 </div>
 
-
 <script>
 // Backend API Route
 const API_URL = "/api/backend"; 
@@ -529,6 +532,7 @@ let currentHistoryTab = 'ALL';
 // Lifafa Variables
 let activeLifafaData = null; 
 let tgJoined = false;
+let joinedTgIndices = new Set(); // Added for tracking multiple channel joins
 
 const loader = (show) => document.getElementById('global-loader').style.display = show ? 'flex' : 'none';
 
@@ -929,16 +933,33 @@ function toggleLifafaTab(tab) {
     }
 }
 
+// Function to add more Telegram input fields
+function addTgInput() {
+    const container = document.getElementById('tg-inputs-container');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'https://t.me/anotherchannel';
+    input.className = 'tg-link-input w-full bg-slate-50 p-4 rounded-xl border font-bold text-sm outline-none';
+    container.appendChild(input);
+}
+
 async function handleCreateLifafa() {
-    const tg = document.getElementById('l-tg').value.trim();
+    // Collect all dynamic Telegram links
+    const tgInputs = document.querySelectorAll('.tg-link-input');
+    const tgLinks = [];
+    tgInputs.forEach(input => {
+        const val = input.value.trim();
+        if(val.startsWith("http")) tgLinks.push(val);
+    });
+
     const code = document.getElementById('l-code').value.trim();
     const type = document.getElementById('l-type').value;
     const users = Number(document.getElementById('l-users').value);
     
-    if(!tg.startsWith("http")) return alert("Enter valid Telegram Link starting with http/https");
+    if(tgLinks.length === 0) return alert("Enter at least one valid Telegram Link starting with http/https");
     if(!users || users < 1) return alert("Enter valid users limit");
 
-    let payload = { phone: currentUser.phone, type, telegram: tg, code, totalUsers: users };
+    let payload = { phone: currentUser.phone, type, telegramLinks: tgLinks, code, totalUsers: users };
 
     if(type === 'STANDARD') {
         payload.amount = Number(document.getElementById('l-std-amt').value);
@@ -1008,6 +1029,27 @@ async function initLifafaClaim(id) {
         document.getElementById('claim-type-desc').innerText = `Type: ${res.type} GIVEAWAY`;
         document.getElementById('claim-steps-container').classList.remove('hidden');
         if(res.hasCode) document.getElementById('claim-code-div').classList.remove('hidden');
+        
+        // Dynamically create Telegram Join Buttons
+        const btnContainer = document.getElementById('dynamic-tg-buttons');
+        btnContainer.innerHTML = '';
+        joinedTgIndices.clear();
+        const links = res.telegramLinks || [];
+        
+        links.forEach((link, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'w-full bg-blue-500 text-white font-bold py-3 rounded-lg text-sm shadow-md transition';
+            btn.innerText = `Join Channel ${idx + 1}`;
+            btn.onclick = () => {
+                window.open(link, '_blank');
+                joinedTgIndices.add(idx);
+                btn.classList.replace('bg-blue-500', 'bg-emerald-500');
+                btn.innerText = `Joined Channel ${idx + 1} ✓`;
+                if(joinedTgIndices.size === links.length) tgJoined = true;
+            };
+            btnContainer.appendChild(btn);
+        });
+        tgJoined = (links.length === 0); // Default to true if no links
 
     } catch(e) {
         document.getElementById('claim-type-desc').innerText = "ERROR";
@@ -1018,13 +1060,10 @@ async function initLifafaClaim(id) {
     }
 }
 
-function openLifafaTelegram() {
-    tgJoined = true;
-    window.open(activeLifafaData.telegram, '_blank');
-}
-
 function proceedLifafaClaim() {
-    if(!tgJoined) return alert("Please join the Telegram channel first!");
+    const reqLinks = activeLifafaData.telegramLinks ? activeLifafaData.telegramLinks.length : 0;
+    if(joinedTgIndices.size < reqLinks && reqLinks > 0) return alert("Please join all Telegram channels first!");
+    
     const phone = document.getElementById('claim-phone').value.trim();
     if(phone.length !== 10) return alert("Enter valid 10-digit mobile!");
     if(activeLifafaData.hasCode && !document.getElementById('claim-code').value.trim()) return alert("Enter unique code!");
